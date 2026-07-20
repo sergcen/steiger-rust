@@ -150,8 +150,8 @@ jobs:
         run: |
           node scripts/prepare-npm-release.mjs --write "${{ github.ref_name }}"
           node scripts/stage-npm-binaries.mjs artifacts
-          npm --prefix npm/steiger-rust test
-      - name: Publish platform packages and launcher
+          STEIGER_NATIVE_BINARY=artifacts/steiger-rust-linux-x64-gnu/steiger node --test tests/npm_native_cli.mjs
+      - name: Publish platform packages and meta-package
         shell: bash
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

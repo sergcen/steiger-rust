@@ -1,6 +1,6 @@
 # Releasing Steiger
 
-The `Release` workflow builds eight native binaries, creates a GitHub Release with SHA-256 checksums, publishes eight platform packages to npm, and then publishes the `steiger-rust` launcher package.
+The `Release` workflow builds eight native binaries, creates a GitHub Release with SHA-256 checksums, publishes eight platform packages to npm, and then publishes the `steiger-rust` meta-package.
 
 ## One-time repository setup
 
@@ -30,7 +30,8 @@ cargo check
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo test --locked --all-features
-npm --prefix npm/steiger-rust test
+cargo build --locked --release
+node --test tests/npm_native_cli.mjs
 node scripts/prepare-npm-release.mjs --check v0.1.0
 git tag v0.1.0
 git push origin v0.1.0

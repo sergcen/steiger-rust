@@ -12,6 +12,9 @@
   "libc": [
     "glibc"
   ],
+  "bin": {
+    "steiger": "bin/steiger"
+  },
   "files": [
     "bin"
   ],

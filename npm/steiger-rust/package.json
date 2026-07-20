@@ -3,20 +3,10 @@
   "version": "0.1.0",
   "description": "Fast native Feature-Sliced Design architecture linter",
   "license": "MIT",
-  "type": "commonjs",
-  "bin": {
-    "steiger": "bin/steiger.js"
-  },
   "files": [
-    "bin",
-    "lib"
+    "README.md",
+    "LICENSE"
   ],
-  "scripts": {
-    "test": "node --test"
-  },
-  "engines": {
-    "node": ">=18.18"
-  },
   "keywords": [
     "feature-sliced-design",
     "fsd",

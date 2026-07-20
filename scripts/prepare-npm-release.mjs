@@ -56,6 +56,17 @@ const rootManifest = manifests[0].value;
 if (JSON.stringify(rootManifest.optionalDependencies) !== JSON.stringify(expectedDependencies)) {
   throw new Error('npm/steiger-rust optionalDependencies do not match the platform package list');
 }
+if (rootManifest.bin !== undefined || rootManifest.engines !== undefined) {
+  throw new Error('npm/steiger-rust must remain a runtime-free meta-package');
+}
+
+for (const { packageName, binary } of platforms) {
+  const platformManifest = manifests.find(({ value }) => value.name === packageName)?.value;
+  const expectedBin = { steiger: `bin/${binary}` };
+  if (!platformManifest || JSON.stringify(platformManifest.bin) !== JSON.stringify(expectedBin)) {
+    throw new Error(`${packageName} must expose steiger directly as ${expectedBin.steiger}`);
+  }
+}
 
 if (mode === '--write') {
   const server = process.env.GITHUB_SERVER_URL;

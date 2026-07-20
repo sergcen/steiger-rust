@@ -12,6 +12,9 @@
   "libc": [
     "musl"
   ],
+  "bin": {
+    "steiger": "bin/steiger"
+  },
   "files": [
     "bin"
   ],

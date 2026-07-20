@@ -9,6 +9,9 @@
   "cpu": [
     "x64"
   ],
+  "bin": {
+    "steiger": "bin/steiger"
+  },
   "files": [
     "bin"
   ],

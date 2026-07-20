@@ -11,7 +11,7 @@ npm install --save-dev steiger-rust
 npx steiger ./src
 ```
 
-The npm launcher downloads only the native binary for the current operating system and architecture. It requires Node.js 18.18 or newer to launch the binary; Steiger itself does not embed Node.js.
+The npm meta-package downloads only the native package for the current operating system and architecture. That platform package exposes `steiger` as the Rust executable itself: invoking the CLI does not start Node.js or a JavaScript launcher. npm is only used to install the package.
 
 To build from source instead:
 
@@ -140,10 +140,11 @@ cargo test --all-targets
 cargo build --release
 ```
 
-The npm launcher has a separate test suite:
+The npm packaging has a separate integration test. It installs local tarballs and verifies that `.bin/steiger` resolves directly to a native executable:
 
 ```bash
-npm --prefix npm/steiger-rust test
+cargo build --release
+node --test tests/npm_native_cli.mjs
 node scripts/prepare-npm-release.mjs --check v0.1.0
 ```
 

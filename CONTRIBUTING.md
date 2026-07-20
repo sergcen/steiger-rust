@@ -4,12 +4,13 @@ Bug fixes, compatibility improvements, performance work, documentation, and test
 
 ## Development setup
 
-Steiger requires Rust 1.89 or newer. Node.js 18.18 or newer is needed only for the npm launcher tests.
+Steiger requires Rust 1.89 or newer. Node.js is used only by npm packaging and release tooling; the installed `steiger` command is the native Rust executable.
 
 ```bash
 cargo build
 cargo test --all-features
-npm --prefix npm/steiger-rust test
+cargo build --release
+node --test tests/npm_native_cli.mjs
 ```
 
 Before opening a pull request, run:
@@ -18,7 +19,8 @@ Before opening a pull request, run:
 cargo fmt --all -- --check
 cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo test --locked --all-features
-npm --prefix npm/steiger-rust test
+cargo build --locked --release
+node --test tests/npm_native_cli.mjs
 ```
 
 ## Pull requests
