@@ -38,7 +38,8 @@ function npmPack(directory, destination) {
     ['pack', directory, '--json', '--pack-destination', destination],
     { encoding: 'utf8' },
   );
-  const [result] = JSON.parse(output);
+  const parsed = JSON.parse(output);
+  const [result] = Array.isArray(parsed) ? parsed : Object.values(parsed);
   return { path: join(destination, result.filename), files: result.files.map(({ path }) => path) };
 }
 
