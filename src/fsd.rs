@@ -6,7 +6,7 @@ use std::{
 use anyhow::{Context, Result};
 use ignore::WalkBuilder;
 
-use crate::Config;
+use crate::{Config, path_utils::normalize_canonical_path};
 
 pub const LAYER_SEQUENCE: &[&str] = &["shared", "entities", "features", "widgets", "pages", "app"];
 pub const UNSLICED_LAYERS: &[&str] = &["shared", "app"];
@@ -373,29 +373,6 @@ impl Project {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn normalize_canonical_path(path: PathBuf) -> PathBuf {
-    let bytes = path.as_os_str().as_encoded_bytes();
-    let normalized = if let Some(suffix) = bytes.strip_prefix(br"\\?\UNC\") {
-        [br"\\".as_slice(), suffix].concat()
-    } else if let Some(suffix) = bytes.strip_prefix(br"\\?\")
-        && suffix.get(1) == Some(&b':')
-    {
-        suffix.to_vec()
-    } else {
-        return path;
-    };
-
-    // SAFETY: the prefix manipulation preserves the platform path encoding returned by
-    // `OsStr::as_encoded_bytes` and only removes ASCII bytes from a canonical Windows path.
-    unsafe { PathBuf::from(std::ffi::OsStr::from_encoded_bytes_unchecked(&normalized)) }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn normalize_canonical_path(path: PathBuf) -> PathBuf {
-    path
-}
-
 pub fn is_index(entry: &Entry) -> bool {
     entry.kind == EntryKind::File
         && entry
@@ -507,18 +484,5 @@ mod tests {
         assert!(descendants.contains(&ui));
         assert!(descendants.contains(&nested));
         assert!(!descendants.contains(&neighbor));
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn normalizes_windows_canonical_paths_for_resolver_keys() {
-        assert_eq!(
-            normalize_canonical_path(PathBuf::from(r"\\?\C:\repo\src")),
-            PathBuf::from(r"C:\repo\src")
-        );
-        assert_eq!(
-            normalize_canonical_path(PathBuf::from(r"\\?\UNC\server\share\src")),
-            PathBuf::from(r"\\server\share\src")
-        );
     }
 }

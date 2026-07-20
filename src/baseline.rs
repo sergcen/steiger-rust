@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 
-use crate::Diagnostic;
+use crate::{Diagnostic, path_utils::normalize_canonical_path};
 
 /// A checked-in set of diagnostics that are allowed while existing FSD debt is reduced.
 #[derive(Debug)]
@@ -17,9 +17,10 @@ pub struct DiagnosticBaseline {
 
 impl DiagnosticBaseline {
     pub fn load(path: &Path) -> Result<Self> {
-        let path = path
-            .canonicalize()
-            .with_context(|| format!("cannot resolve baseline file {}", path.display()))?;
+        let path = normalize_canonical_path(
+            path.canonicalize()
+                .with_context(|| format!("cannot resolve baseline file {}", path.display()))?,
+        );
         let contents = fs::read_to_string(&path)
             .with_context(|| format!("cannot read baseline file {}", path.display()))?;
         let raw: BTreeMap<String, Vec<String>> = serde_json::from_str(&contents)
@@ -98,7 +99,7 @@ mod tests {
         )
         .unwrap();
         let baseline = DiagnosticBaseline::load(&baseline_path).unwrap();
-        let project = temp.path().canonicalize().unwrap();
+        let project = normalize_canonical_path(temp.path().canonicalize().unwrap());
 
         let known = Diagnostic::new(
             "fsd/insignificant-slice",

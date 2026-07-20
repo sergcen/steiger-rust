@@ -50,8 +50,6 @@ fn exits_only_when_a_diagnostic_is_absent_from_the_baseline() {
                 diagnostic
                     .location
                     .path
-                    .strip_prefix(&project)
-                    .unwrap()
                     .to_string_lossy()
                     .replace('\\', "/"),
             );

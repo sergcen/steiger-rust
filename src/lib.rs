@@ -4,6 +4,7 @@ pub mod diagnostic;
 pub mod engine;
 pub mod fsd;
 pub mod imports;
+mod path_utils;
 pub mod reporter;
 pub mod rules;
 

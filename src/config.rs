@@ -8,7 +8,7 @@ use anyhow::{Context, Result, bail};
 use globset::{GlobBuilder, GlobMatcher};
 use serde::Deserialize;
 
-use crate::{diagnostic::Severity, rules::RECOMMENDED_RULES};
+use crate::{diagnostic::Severity, path_utils::normalize_canonical_path, rules::RECOMMENDED_RULES};
 
 const CONFIG_NAMES: &[&str] = &[
     "steiger.toml",
@@ -125,9 +125,9 @@ impl Config {
 
     pub fn discover(explicit_path: Option<&Path>) -> Result<Self> {
         let path = if let Some(path) = explicit_path {
-            Some(path.canonicalize().with_context(|| {
-                format!("configuration file does not exist: {}", path.display())
-            })?)
+            Some(normalize_canonical_path(path.canonicalize().with_context(
+                || format!("configuration file does not exist: {}", path.display()),
+            )?))
         } else {
             discover_config(&env::current_dir().context("cannot determine current directory")?)
         };
@@ -139,9 +139,10 @@ impl Config {
     }
 
     pub fn load(path: &Path) -> Result<Self> {
-        let path = path
-            .canonicalize()
-            .with_context(|| format!("configuration file does not exist: {}", path.display()))?;
+        let path =
+            normalize_canonical_path(path.canonicalize().with_context(|| {
+                format!("configuration file does not exist: {}", path.display())
+            })?);
         let source = fs::read_to_string(&path)
             .with_context(|| format!("cannot read configuration from {}", path.display()))?;
         let extension = path.extension().and_then(|value| value.to_str());
@@ -256,7 +257,7 @@ fn discover_config(start: &Path) -> Option<PathBuf> {
         for name in CONFIG_NAMES {
             let candidate = directory.join(name);
             if candidate.is_file() {
-                return candidate.canonicalize().ok();
+                return candidate.canonicalize().ok().map(normalize_canonical_path);
             }
         }
     }
@@ -347,7 +348,7 @@ mod tests {
         .unwrap();
 
         let config = Config::load(&config_path).unwrap();
-        let root = temp.path().canonicalize().unwrap();
+        let root = normalize_canonical_path(temp.path().canonicalize().unwrap());
         assert_eq!(
             config.severity_for_file("fsd/public-api", &root.join("src/shared/api/a.ts")),
             Severity::Off
@@ -380,7 +381,7 @@ mod tests {
         .unwrap();
 
         let config = Config::load(&config_path).unwrap();
-        let root = temp.path().canonicalize().unwrap();
+        let root = normalize_canonical_path(temp.path().canonicalize().unwrap());
         assert!(config.is_global_ignored(&root.join("src/generated/code.ts")));
         assert_eq!(
             config.severity_for_file("fsd/no-processes", &root.join("src/processes/auth.ts")),
@@ -409,7 +410,7 @@ mod tests {
         .unwrap();
 
         let config = Config::load(&config_path).unwrap();
-        let root = temp.path().canonicalize().unwrap();
+        let root = normalize_canonical_path(temp.path().canonicalize().unwrap());
         let ui = root.join("src/entities/product/ui");
         let mut files = vec![
             ui.join("Card.tsx"),
