@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a reproducible Steiger problem
+title: "[Bug]: "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Steiger version
+      description: Output of `steiger --version`.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, architecture, and installation method.
+      placeholder: macOS arm64, npm
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Provide the smallest project structure, files, configuration, and command that reproduce the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include diagnostics, exit code, or logs. Remove secrets and private source code.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add upstream Steiger output or performance measurements when relevant.

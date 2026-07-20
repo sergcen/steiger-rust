@@ -1,0 +1,11 @@
+/target
+/artifacts
+/release-assets
+/npm/steiger-rust/node_modules
+/npm/platforms/*/bin
+/npm/platforms/*/LICENSE
+/npm/steiger-rust/LICENSE
+*.tgz
+npm-debug.log*
+*.swp
+.DS_Store

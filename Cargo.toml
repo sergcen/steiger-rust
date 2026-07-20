@@ -1,0 +1,39 @@
+[package]
+name = "steiger"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+description = "A fast Feature-Sliced Design architecture linter"
+license = "MIT"
+readme = "README.md"
+keywords = ["feature-sliced-design", "fsd", "linter", "architecture"]
+categories = ["command-line-utilities", "development-tools"]
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.6", features = ["derive"] }
+globset = "0.4"
+ignore = "0.4"
+notify = "8.2"
+owo-colors = { version = "4.2", features = ["supports-colors"] }
+oxc_allocator = "=0.102.0"
+oxc_ast = "=0.102.0"
+oxc_ast_visit = "=0.102.0"
+oxc_parser = "=0.102.0"
+oxc_resolver = "=11.23.0"
+oxc_span = "=0.102.0"
+pluralizer = "0.5"
+rayon = "1.11"
+regex = "1.11"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+strsim = "0.11"
+toml = "0.9"
+
+[dev-dependencies]
+tempfile = "3.20"
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+strip = true

@@ -1,0 +1,199 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TOOLCHAIN: 1.89.0
+
+jobs:
+  validate:
+    name: Validate release version
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - run: node scripts/prepare-npm-release.mjs --check "${{ github.ref_name }}"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            package: steiger-rust-darwin-arm64
+            archive: tar
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            package: steiger-rust-darwin-x64
+            archive: tar
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            package: steiger-rust-linux-arm64-gnu
+            archive: tar
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            package: steiger-rust-linux-x64-gnu
+            archive: tar
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+            package: steiger-rust-linux-arm64-musl
+            archive: tar
+            musl: true
+          - runner: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            package: steiger-rust-linux-x64-musl
+            archive: tar
+            musl: true
+          - runner: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            package: steiger-rust-win32-arm64-msvc
+            archive: zip
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            package: steiger-rust-win32-x64-msvc
+            archive: zip
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install musl toolchain
+        if: matrix.musl == true
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes musl-tools
+      - name: Install Rust target
+        shell: bash
+        run: |
+          rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+          rustup target add "${{ matrix.target }}" --toolchain "$RUST_TOOLCHAIN"
+          rustup default "$RUST_TOOLCHAIN"
+      - name: Build release binary
+        run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Smoke test release binary
+        if: runner.os != 'Windows'
+        run: target/${{ matrix.target }}/release/steiger --version
+      - name: Smoke test release binary on Windows
+        if: runner.os == 'Windows'
+        run: target/${{ matrix.target }}/release/steiger.exe --version
+      - name: Package Unix release
+        if: matrix.archive == 'tar'
+        shell: bash
+        env:
+          STEIGER_TARGET: ${{ matrix.target }}
+          STEIGER_VERSION: ${{ github.ref_name }}
+        run: |
+          mkdir -p dist/stage
+          cp "target/$STEIGER_TARGET/release/steiger" dist/steiger
+          cp dist/steiger dist/stage/steiger
+          cp README.md LICENSE dist/stage/
+          chmod 755 dist/steiger dist/stage/steiger
+          tar -C dist/stage -czf "dist/steiger-$STEIGER_VERSION-$STEIGER_TARGET.tar.gz" steiger README.md LICENSE
+      - name: Package Windows release
+        if: matrix.archive == 'zip'
+        shell: pwsh
+        env:
+          STEIGER_TARGET: ${{ matrix.target }}
+          STEIGER_VERSION: ${{ github.ref_name }}
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/stage | Out-Null
+          Copy-Item "target/$env:STEIGER_TARGET/release/steiger.exe" dist/steiger.exe
+          Copy-Item dist/steiger.exe dist/stage/steiger.exe
+          Copy-Item README.md, LICENSE dist/stage/
+          Compress-Archive -Path dist/stage/* -DestinationPath "dist/steiger-$env:STEIGER_VERSION-$env:STEIGER_TARGET.zip"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.package }}
+          path: |
+            dist/steiger
+            dist/steiger.exe
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-npm:
+    name: Publish npm packages
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Install current npm CLI
+        run: npm install --global npm@12.0.1
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: steiger-rust-*
+          path: artifacts
+      - name: Prepare npm packages
+        run: |
+          node scripts/prepare-npm-release.mjs --write "${{ github.ref_name }}"
+          node scripts/stage-npm-binaries.mjs artifacts
+          npm --prefix npm/steiger-rust test
+      - name: Publish platform packages and launcher
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          STEIGER_VERSION: ${{ github.ref_name }}
+        run: |
+          release_version="${STEIGER_VERSION#v}"
+          if [[ -n "${NODE_AUTH_TOKEN:-}" ]]; then
+            npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
+          fi
+          for package_directory in npm/platforms/* npm/steiger-rust; do
+            package_name="$(node -p "require('./${package_directory}/package.json').name")"
+            if npm view "$package_name@$release_version" version >/dev/null 2>&1; then
+              echo "$package_name@$release_version is already published"
+            else
+              npm publish "./$package_directory" --access public
+            fi
+          done
+
+  github-release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: steiger-rust-*
+          path: artifacts
+      - name: Collect release assets
+        run: |
+          mkdir release-assets
+          find artifacts -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} release-assets/ \;
+          cd release-assets
+          sha256sum *.tar.gz *.zip > SHA256SUMS
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ github.ref_name }}" >/dev/null 2>&1; then
+            gh release upload "${{ github.ref_name }}" release-assets/* --clobber
+          else
+            gh release create "${{ github.ref_name }}" release-assets/* --verify-tag --generate-notes --title "Steiger ${{ github.ref_name }}"
+          fi

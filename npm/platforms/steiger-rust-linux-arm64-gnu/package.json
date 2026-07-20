@@ -1,0 +1,21 @@
+{
+  "name": "steiger-rust-linux-arm64-gnu",
+  "version": "0.1.0",
+  "description": "steiger-rust native binary for Linux ARM64 (glibc)",
+  "license": "MIT",
+  "os": [
+    "linux"
+  ],
+  "cpu": [
+    "arm64"
+  ],
+  "libc": [
+    "glibc"
+  ],
+  "files": [
+    "bin"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "steiger-rust",
+  "version": "0.1.0",
+  "description": "Fast native Feature-Sliced Design architecture linter",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "steiger": "bin/steiger.js"
+  },
+  "files": [
+    "bin",
+    "lib"
+  ],
+  "scripts": {
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18.18"
+  },
+  "keywords": [
+    "feature-sliced-design",
+    "fsd",
+    "linter",
+    "rust",
+    "architecture"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "optionalDependencies": {
+    "steiger-rust-darwin-arm64": "0.1.0",
+    "steiger-rust-darwin-x64": "0.1.0",
+    "steiger-rust-linux-arm64-gnu": "0.1.0",
+    "steiger-rust-linux-x64-gnu": "0.1.0",
+    "steiger-rust-linux-arm64-musl": "0.1.0",
+    "steiger-rust-linux-x64-musl": "0.1.0",
+    "steiger-rust-win32-arm64-msvc": "0.1.0",
+    "steiger-rust-win32-x64-msvc": "0.1.0"
+  }
+}
