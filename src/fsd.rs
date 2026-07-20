@@ -58,9 +58,10 @@ pub struct Project {
 
 impl Project {
     pub fn scan(root: &Path, config: &Config) -> Result<Self> {
-        let root = root
-            .canonicalize()
-            .with_context(|| format!("cannot access lint root {}", root.display()))?;
+        let root = normalize_canonical_path(
+            root.canonicalize()
+                .with_context(|| format!("cannot access lint root {}", root.display()))?,
+        );
         let mut files = Vec::new();
 
         let mut builder = WalkBuilder::new(&root);
@@ -372,6 +373,29 @@ impl Project {
     }
 }
 
+#[cfg(target_os = "windows")]
+fn normalize_canonical_path(path: PathBuf) -> PathBuf {
+    let bytes = path.as_os_str().as_encoded_bytes();
+    let normalized = if let Some(suffix) = bytes.strip_prefix(br"\\?\UNC\") {
+        [br"\\".as_slice(), suffix].concat()
+    } else if let Some(suffix) = bytes.strip_prefix(br"\\?\")
+        && suffix.get(1) == Some(&b':')
+    {
+        suffix.to_vec()
+    } else {
+        return path;
+    };
+
+    // SAFETY: the prefix manipulation preserves the platform path encoding returned by
+    // `OsStr::as_encoded_bytes` and only removes ASCII bytes from a canonical Windows path.
+    unsafe { PathBuf::from(std::ffi::OsStr::from_encoded_bytes_unchecked(&normalized)) }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn normalize_canonical_path(path: PathBuf) -> PathBuf {
+    path
+}
+
 pub fn is_index(entry: &Entry) -> bool {
     entry.kind == EntryKind::File
         && entry
@@ -452,8 +476,8 @@ mod tests {
         fs::create_dir_all(ui_kit_file.parent().unwrap()).unwrap();
         fs::write(&ui_file, "").unwrap();
         fs::write(&ui_kit_file, "").unwrap();
-        let ui_file = ui_file.canonicalize().unwrap();
-        let ui_kit_file = ui_kit_file.canonicalize().unwrap();
+        let ui_file = normalize_canonical_path(ui_file.canonicalize().unwrap());
+        let ui_kit_file = normalize_canonical_path(ui_kit_file.canonicalize().unwrap());
 
         let project = Project::scan(&root, &Config::recommended()).unwrap();
         let index = project.source_index();
@@ -475,13 +499,26 @@ mod tests {
         fs::write(neighbor.join("theme.ts"), "").unwrap();
 
         let project = Project::scan(&root, &Config::recommended()).unwrap();
-        let ui = ui.canonicalize().unwrap();
-        let nested = nested.canonicalize().unwrap();
-        let neighbor = neighbor.canonicalize().unwrap();
+        let ui = normalize_canonical_path(ui.canonicalize().unwrap());
+        let nested = normalize_canonical_path(nested.canonicalize().unwrap());
+        let neighbor = normalize_canonical_path(neighbor.canonicalize().unwrap());
         let descendants = project.descendant_directories(&ui);
 
         assert!(descendants.contains(&ui));
         assert!(descendants.contains(&nested));
         assert!(!descendants.contains(&neighbor));
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn normalizes_windows_canonical_paths_for_resolver_keys() {
+        assert_eq!(
+            normalize_canonical_path(PathBuf::from(r"\\?\C:\repo\src")),
+            PathBuf::from(r"C:\repo\src")
+        );
+        assert_eq!(
+            normalize_canonical_path(PathBuf::from(r"\\?\UNC\server\share\src")),
+            PathBuf::from(r"\\server\share\src")
+        );
     }
 }
