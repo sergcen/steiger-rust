@@ -274,9 +274,13 @@ mod tests {
 
         let project = Project::scan(&root, &crate::Config::recommended()).unwrap();
         let graph = ImportGraph::build(&project, &project.source_index()).unwrap();
-        let source = source.canonicalize().unwrap();
+        let source = project
+            .files
+            .iter()
+            .find(|path| path.file_name() == source.file_name())
+            .unwrap();
 
-        assert_eq!(graph.imports[&source].len(), 1);
-        assert_eq!(graph.imports[&source][0].resolved, None);
+        assert_eq!(graph.imports[source].len(), 1);
+        assert_eq!(graph.imports[source][0].resolved, None);
     }
 }
