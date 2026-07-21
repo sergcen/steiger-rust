@@ -58,23 +58,23 @@ does not start Node.js or a JavaScript launcher.
 ## Performance
 
 The following end-to-end CLI benchmark was measured on July 21, 2026, using
-the Terminal PWA: a 64 MB source tree containing 10,378 JavaScript, TypeScript,
-and component files. Both implementations ran only
-`fsd/insignificant-slice`, used the same mock-widget exclusions, and returned
-the same 87 diagnostics.
+a large production PWA: a 64 MB source tree containing 10,378 JavaScript,
+TypeScript, and component files. All 20 built-in FSD rules were enabled as
+errors in both implementations. They returned the same 1,362 diagnostics and
+1,158 unique `(rule, path)` pairs.
 
 | Implementation | Version | Runs | Median wall time | Relative |
 | --- | --- | ---: | ---: | ---: |
-| JavaScript Steiger | `steiger 0.6.0` + plugin `0.7.0` | 3 | 200.73 s | 1× |
-| Steiger for Rust | `0.1.0` release build | 10 | 0.855 s | ~235× faster |
+| JavaScript Steiger | `steiger 0.6.0` + plugin `0.7.0` | 3 | 31.49 s | 1× |
+| Steiger for Rust | `0.1.0` release build | 10 | 0.53 s | ~59× faster |
 
 Environment: Apple M2 Max, macOS, Node.js 22.14.0. Runs used a warm filesystem
 cache, the JSON reporter, and discarded reporter output. The JavaScript process
-was run with `ulimit -n 120000`; runs at 65,536 file descriptors stopped with
-`EMFILE: too many open files`.
+was run with `CHOKIDAR_USEPOLLING=1`; its default watcher mode stopped with
+`EMFILE: too many open files` even with `ulimit -n 120000`.
 
-Raw wall times were `201.14, 200.73, 200.49 s` for JavaScript and
-`0.85, 0.66, 0.86, 0.89, 0.86, 0.65, 0.86, 0.88, 0.66, 0.65 s` for Rust.
+Raw wall times were `31.35, 31.49, 31.59 s` for JavaScript and
+`0.80, 0.53, 0.53, 0.53, 0.52, 0.52, 0.54, 0.54, 0.53, 0.53 s` for Rust.
 These are project-specific results rather than a universal performance
 guarantee; filesystem, enabled rules, project shape, and cache state all affect
 runtime.
