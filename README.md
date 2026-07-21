@@ -1,26 +1,108 @@
-# Steiger for Rust
+<h1 align="center">Steiger for Rust</h1>
 
-A native, Node.js-free rewrite of [feature-sliced/steiger](https://github.com/feature-sliced/steiger): a project-architecture linter for [Feature-Sliced Design](https://feature-sliced.design/).
+<p align="center">
+  A fast, native architecture linter for Feature-Sliced Design projects.
+</p>
 
-The current implementation follows Steiger 0.6.0 and `@feature-sliced/steiger-plugin` 0.7.0. It contains the same 20 FSD rules, enables the same 17-rule recommended preset, keeps the familiar CLI flags, and uses Oxc to analyze JavaScript and TypeScript imports.
+<p align="center">
+  <a href="https://github.com/sergcen/steiger-rust/actions/workflows/ci.yml">
+    <img alt="CI" src="https://github.com/sergcen/steiger-rust/actions/workflows/ci.yml/badge.svg?branch=main">
+  </a>
+  <a href="https://www.npmjs.com/package/steiger-rust">
+    <img alt="npm version" src="https://img.shields.io/npm/v/steiger-rust">
+  </a>
+  <a href="https://www.npmjs.com/package/steiger-rust">
+    <img alt="npm downloads" src="https://img.shields.io/npm/dm/steiger-rust">
+  </a>
+  <a href="LICENSE">
+    <img alt="MIT license" src="https://img.shields.io/github/license/sergcen/steiger-rust">
+  </a>
+</p>
+
+Steiger for Rust is a Node.js-free rewrite of
+[feature-sliced/steiger](https://github.com/feature-sliced/steiger). It checks
+the architecture of JavaScript and TypeScript projects that use
+[Feature-Sliced Design](https://feature-sliced.design/) while keeping startup
+and analysis inside a native Rust executable.
+
+- Compatible with Steiger 0.6 and `@feature-sliced/steiger-plugin` 0.7 behavior.
+- Includes all 20 FSD rules and enables the same 17-rule recommended preset.
+- Uses Oxc for JavaScript and TypeScript parsing and Rayon for parallel work.
+- Supports checked-in diagnostic baselines for gradual adoption in CI and
+  pre-push hooks.
 
 ## Quick start
+
+Install the npm package and lint the directory that contains your FSD layers:
 
 ```bash
 npm install --save-dev steiger-rust
 npx steiger ./src
 ```
 
-The npm meta-package downloads only the native package for the current operating system and architecture. That platform package exposes `steiger` as the Rust executable itself: invoking the CLI does not start Node.js or a JavaScript launcher. npm is only used to install the package.
+A project without diagnostics prints:
 
-To build from source instead:
-
-```bash
-cargo install --path . --locked
-steiger ./src
+```text
+✓ No problems found!
 ```
 
-When no path is provided, Steiger selects `./src`, then `./app`, then the current folder.
+The `steiger-rust` meta-package installs the native package for the current
+operating system and architecture. Its `steiger` entry points directly to the
+Rust executable: npm installs and resolves the command, but the linter itself
+does not start Node.js or a JavaScript launcher.
+
+> [!IMPORTANT]
+> Do not install with `--omit=optional`. The platform-specific native binary is
+> delivered as an optional dependency.
+
+## Applicability and compatibility
+
+Use Steiger for Rust in local development, pre-push validation, or CI for FSD
+projects whose source is JavaScript, TypeScript, Vue, Svelte, or Astro. Linting
+does not require authentication or a network connection after installation.
+
+| Area | Supported targets |
+| --- | --- |
+| Operating systems | macOS, Linux, Windows |
+| Architectures | x64 and arm64 |
+| npm Linux variants | glibc and musl |
+| Source files | JS, JSX, TS, TSX, MJS, CJS, MTS, CTS |
+| Embedded scripts | Vue, Svelte, Astro |
+| Configuration | TOML and JSON |
+| Source builds | Rust 1.89 or newer |
+
+GitHub Releases and npm publish native binaries for these targets:
+
+| Operating system | Architecture | Target family |
+| --- | --- | --- |
+| macOS | x64, arm64 | Darwin |
+| Linux | x64, arm64 | GNU/glibc and musl |
+| Windows | x64, arm64 | MSVC |
+
+Other Rust targets can be built from source when all dependencies support the
+target.
+
+## Usage
+
+When `PATH` is omitted, Steiger selects `./src`, then `./app`, then the current
+directory.
+
+```bash
+steiger [OPTIONS] [PATH]
+```
+
+| Option | Purpose |
+| --- | --- |
+| `-w`, `--watch` | Re-run when project files change |
+| `--fix` | Apply available automatic fixes |
+| `--fail-on-warnings` | Return a failing status when warnings remain |
+| `--reporter pretty\|json` | Select human-readable or JSON output |
+| `--config FILE` | Use an explicit TOML or JSON configuration |
+| `--baseline FILE` | Fail only on diagnostics absent from a baseline |
+| `--fsd-errors FILE` | Alias for `--baseline` |
+| `--list-rules` | Print every built-in rule and its default state |
+
+Common commands:
 
 ```bash
 steiger ./src --watch
@@ -31,34 +113,69 @@ steiger ./src --baseline ./fsd-errors.json
 steiger --list-rules
 ```
 
-The exit code is `1` when errors remain, or when warnings remain together with `--fail-on-warnings`. Invalid input or configuration returns `2`.
+### Exit codes
 
-## Supported platforms
+| Code | Meaning |
+| --- | --- |
+| `0` | Validation passed |
+| `1` | Errors remain, warnings fail, or new baseline diagnostics were found |
+| `2` | The path, configuration, or another CLI input is invalid |
 
-GitHub Releases and npm provide native binaries for:
+## Validate against existing FSD debt
 
-| Operating system | Architectures | Runtime variant |
-| --- | --- | --- |
-| macOS | x64, arm64 | Darwin |
-| Linux | x64, arm64 | glibc and musl |
-| Windows | x64, arm64 | MSVC |
+`--baseline` lets a project commit its known FSD diagnostics and reject only
+new `(rule, path)` pairs. The file is a JSON object keyed by rule name; every
+path is resolved relative to the baseline file.
 
-Other Rust targets can still be built from source when the dependencies support them.
+```json
+{
+  "fsd/insignificant-slice": [
+    "src/entities/user"
+  ]
+}
+```
 
-### Validate against existing FSD debt
-
-For gradual migrations, `--baseline` accepts the checked-in `fsd-errors.json` format used by Terminal: a JSON object whose keys are rule names and whose values are arrays of paths. Paths are resolved relative to the baseline file.
+Run the validation from a hook or CI job:
 
 ```bash
 steiger ./src --baseline ./fsd-errors.json
-# --fsd-errors is an alias for --baseline
 ```
 
-Known `(rule, path)` diagnostics are hidden. The command exits with `0` when no new diagnostics appear and `1` when the current result contains a pair absent from the baseline, making it suitable for pre-push hooks and CI. A reduction in existing diagnostics succeeds without rewriting the committed file.
+Known diagnostics are hidden. The command returns `0` when there are no new
+pairs and `1` when current output contains a pair absent from the baseline. A
+reduction in existing diagnostics succeeds without modifying the committed
+file.
+
+For an npm project, the same validation can be exposed as a package script:
+
+```json
+{
+  "scripts": {
+    "fsd:check": "steiger ./src --baseline ./fsd-errors.json"
+  }
+}
+```
+
+```bash
+npm run fsd:check
+```
 
 ## Configuration
 
-The native binary works without a configuration file. It searches the current folder and its parents for `steiger.toml`, `.steiger.toml`, `steiger.config.toml`, `steiger.json`, `.steiger.json`, or `steiger.config.json`.
+Without `--config`, Steiger searches the current directory and its parents for:
+
+- `steiger.toml`
+- `.steiger.toml`
+- `steiger.config.toml`
+- `steiger.json`
+- `.steiger.json`
+- `steiger.config.json`
+
+> [!IMPORTANT]
+> JavaScript and TypeScript configuration files such as `steiger.config.js`
+> are not evaluated. Executing them would add a Node.js runtime dependency.
+> Move the rule and override settings to TOML or JSON; plugin objects are not
+> needed because every supported FSD rule is built into the binary.
 
 Example `steiger.toml`:
 
@@ -82,7 +199,7 @@ ignores = ["**/discount-offers/**"]
 "fsd/no-segmentless-slices" = "off"
 ```
 
-JSON also accepts a Steiger-style flat array. Rules are built into the binary, so plugin objects are omitted:
+JSON also accepts a Steiger-style flat array:
 
 ```json
 [
@@ -94,22 +211,23 @@ JSON also accepts a Steiger-style flat array. Rules are built into the binary, s
 ]
 ```
 
-Later matching overrides take precedence. A folder diagnostic receives the highest effective severity of the files below that folder, matching upstream Steiger's file-glob behavior.
-
-JavaScript and TypeScript configuration files are intentionally not evaluated: doing that would make the native binary depend on Node.js. Use TOML or JSON, or pass a file explicitly with `--config`.
+Later matching overrides take precedence. A folder diagnostic receives the
+highest effective severity of the files below that folder, matching upstream
+Steiger's file-glob behavior.
 
 ## Language and module support
 
-- JavaScript, JSX, TypeScript, TSX, MJS, CJS, MTS, and CTS through Oxc
-- `import`, `import()`, and `require()` dependencies
-- Vue and Svelte `<script>` blocks
-- Astro frontmatter
-- relative imports, directory indexes, TypeScript `baseUrl`/`paths`, `extends`, and project references through `oxc_resolver`
-- `.gitignore`, `.ignore`, `.git`, `node_modules`, and Rust `target` exclusions
+- JavaScript, JSX, TypeScript, TSX, MJS, CJS, MTS, and CTS through Oxc.
+- `import`, `import()`, and `require()` dependencies.
+- Vue and Svelte `<script>` blocks.
+- Astro frontmatter.
+- Relative imports, directory indexes, TypeScript `baseUrl`/`paths`, `extends`,
+  and project references through `oxc_resolver`.
+- `.gitignore`, `.ignore`, `.git`, `node_modules`, and Rust `target` exclusions.
 
 ## Rules
 
-Run `steiger --list-rules` for the machine-readable list. The recommended preset includes:
+The recommended preset enables these 17 rules:
 
 - `fsd/ambiguous-slice-names`
 - `fsd/excessive-slicing`
@@ -117,6 +235,7 @@ Run `steiger --list-rules` for the machine-readable list. The recommended preset
 - `fsd/inconsistent-naming`
 - `fsd/insignificant-slice`
 - `fsd/no-layer-public-api`
+- `fsd/no-processes`
 - `fsd/no-public-api-sidestep`
 - `fsd/no-reserved-folder-names`
 - `fsd/no-segmentless-slices`
@@ -127,31 +246,54 @@ Run `steiger --list-rules` for the machine-readable list. The recommended preset
 - `fsd/segments-by-purpose`
 - `fsd/shared-lib-grouping`
 - `fsd/typo-in-layer-name`
-- `fsd/no-processes`
 
-The upstream-compatible split rules `fsd/no-cross-imports`, `fsd/no-higher-level-imports`, and `fsd/import-locality` are available but disabled by default.
+The upstream-compatible split rules `fsd/no-cross-imports`,
+`fsd/no-higher-level-imports`, and `fsd/import-locality` are built in but
+disabled by default. Run `steiger --list-rules` for the machine-readable list.
+
+## Install from source
+
+```bash
+cargo install --path . --locked
+steiger ./src
+```
+
+Prebuilt archives and SHA-256 checksums are also available on the
+[GitHub Releases page](https://github.com/sergcen/steiger-rust/releases).
 
 ## Development
 
 ```bash
 cargo fmt --all -- --check
-cargo clippy --all-targets --all-features -- -D warnings
-cargo test --all-targets
-cargo build --release
+cargo clippy --locked --all-targets --all-features -- -D warnings
+cargo test --locked --all-features
+cargo build --locked --release
 ```
 
-The npm packaging has a separate integration test. It installs local tarballs and verifies that `.bin/steiger` resolves directly to a native executable:
+The npm integration test verifies that `.bin/steiger` resolves directly to a
+native Mach-O, ELF, or PE executable:
 
 ```bash
-cargo build --release
 node --test tests/npm_native_cli.mjs
 node scripts/prepare-npm-release.mjs --check v0.1.0
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidance and [RELEASING.md](RELEASING.md) for the tag-based GitHub/npm release process.
+### Repository map
+
+| Path | Purpose |
+| --- | --- |
+| `src/main.rs` | CLI arguments, reporters, exit codes, and watch mode |
+| `src/config.rs` | TOML/JSON discovery, parsing, and override scoping |
+| `src/rules/` | Built-in structural and import rules |
+| `tests/` | CLI, configuration, compatibility, and npm integration tests |
+| `npm/` | Meta-package and eight platform-specific packages |
+| `.github/workflows/` | Multi-platform CI and tag-based release publishing |
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidance and
+[RELEASING.md](RELEASING.md) for the tag-based GitHub and npm release process.
 
 ## License and upstream relationship
 
-This project is an independent Rust implementation derived from the behavior and tests of the MIT-licensed upstream Steiger project.
-
-Released under the [MIT License](LICENSE).
+This project is an independent Rust implementation derived from the behavior
+and tests of the MIT-licensed upstream Steiger project. It is released under
+the [MIT License](LICENSE).
